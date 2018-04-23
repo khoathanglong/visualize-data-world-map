@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Map Data Across the Globe </title>
+	<script src="https://d3js.org/d3.v4.min.js"></script>
+ 	
+</head><script src="https://d3js.org/topojson.v0.min.js"></script>
+<body>
+	<div id="intro"><h3>Meteorite Landing Map</h3></div>
+	<div id="mapHolder">
+		<div id="tooltip"></div>
+	</div>
+	
+	<script>
+		const width=1200;
+		const height=window.innerHeight;
+		//map projection (change 3D to 2D coordinations)
+		const projection=d3.geoEquirectangular().scale(200)
+		const path = d3
+		  .geoPath()
+		  .projection(projection);
+		//generate path for canvas
+		//create svgs
+	
+		const svg=d3.select("#mapHolder")
+			.append('svg')
+			.attr('width',width)
+			.attr('height',height)
+
+		const countries=svg.append('g');
+		const worldMapUrl='https://d3js.org/world-50m.v1.json';
+		fetch(worldMapUrl)
+		.then(res=>res.json())
+		.then(res=>{
+			countries.selectAll('path')
+				.data(topojson.object(res, res.objects.countries).geometries)
+				.enter()
+				.append('path')
+				.attr('d',path)
+				.attr('fill-opacity','0.8')
+		}).then(()=>{
+			let spotUrl='https://raw.githubusercontent.com/FreeCodeCamp/ProjectReferenceData/master/meteorite-strike-data.json';
+			let hue=0, color='';
+			fetch(spotUrl)
+			.then(res=>res.json())
+			.then(res=>{
+				let data=res.features.map(each=>{
+					hue+=.3;
+				    color = 'hsl(' + hue + ',100%, 40%)';
+					return {...each.properties, mass:Number(each.properties.mass),color}
+				}).sort((a,b)=>-a.mass+b.mass);
+				
+				countries.selectAll('circle')
+				.data(data).enter()
+				.append('circle')
+				.attr('cx',d=>{return projection([d.reclong,d.reclat])[0]})
+				.attr('cy',d=>projection([d.reclong,d.reclat])[1])
+				.attr('r',d=>{
+					let range = 718750/2/2;
+			        if (d.mass <= range) return 2;
+			        else if (d.mass <= range*2) return 10;
+			        else if (d.mass <= range*3) return 20;
+			        else if (d.mass <= range*20) return 30;
+			        else if (d.mass <= range*100) return 40;
+			        return 50;
+				})
+				.attr('fill',d=>d.color)		
+				.on('mouseover',d =>{
+					d3.select('#tooltip')
+					.html(
+						`<div>
+							<h4>Name:${' '} ${d.name}</h4>
+							<p>Mass:${' '} ${d.mass}</p>
+							<p>Coordinate:${' '}[${Math.round(d.reclong)},${Math.round(d.reclat)}]</p>
+							<p>Time Fell:${' '}${d.year.substring(0,10)}</p>
+						</div>`	
+					)
+					.style('display','block')
+					.style('top',(d3.event.pageY) + 'px')
+					.style('left', (d3.event.pageX+30) + 'px')
+				})
+				.on('mouseleave',()=>{
+					d3.select('#tooltip')
+					.style('display','none')
+				})
+			})
+		})//outer fetch
+
+	</script>
+	<style>
+		#tooltip{
+			background-color: black;
+			color: white;
+			border-radius: 5px;
+			position: absolute;
+			z-index: 99;
+			padding:0 5px;
+			display: none;
+		}
+		#tooltip p, h4{
+			margin: 0;
+			text-align: left;
+		}
+		#mapHolder{
+			text-align: center;
+			margin-bottom: 0
+		}
+		#intro h3{
+			text-align: center;
+			margin: 10px
+		}
+	</style>
+</body>
+</html>
